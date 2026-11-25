@@ -7,7 +7,7 @@ import { STYLES } from '../shared/content';
 import { anchorOf, FAMILY_STYLES, familyMember, familyMembers, ownStyle, stemRatio, WEIGHTS, weightIdOf } from '../shared/family';
 import { STYLE_FONTS } from '../shared/free-fonts';
 import { DEFAULTS, freeAtOf, isValidParams, sanitizeParams, weightScale, weightUnscale, type Params } from '../shared/params';
-import { buildFont, freeFont, registerFreeFont, type Cmd, type Glyph } from '../shared/engine';
+import { buildFont, fitOutline, freeFont, registerFreeFont, type Cmd, type Glyph } from '../shared/engine';
 import { cmdsBox, toPolys } from '../shared/engine/geom';
 import { buildFamilyZip } from '../server/export';
 import { FreeFonts } from '../server/free-fonts';
@@ -225,6 +225,31 @@ describe('font family', () => {
     // leaning in the italic: its top stands further right than its foot
     const it = glyph(anchor, true).cmds, top = it.filter(c => c[2] === 700).map(c => c[1] as number), foot = it.filter(c => c[2] === 0).map(c => c[1] as number);
     assert.ok(Math.min(...top) > Math.min(...foot) + 50);
+  });
+
+  it('thickens a letter drawn in Points in a design written in a free font as far as the font\'s own letters', async () => {
+    // the Old Style card made lighter, its H traced in Points from its own: moved by the engine's stems, which Weight
+    // moves far further than the font's letters, the family's Regular drew it more than twice as heavy as the I beside
+    // it and its Bold three times, its stems eaten into its side bearings
+    const old = STYLES.find(s => s.id === 'oldstyle')!.params;
+    const fonts = new FreeFonts(null, async (url: string): Promise<never> => { throw new Error(`fetched ${url}`); });
+    const loaded = async (p: Params) => {
+      for (let i = 0; i < 3; i++) { const miss = buildFont(p).freeMissing; if (!miss.length) break; for (const id of miss) if (!freeFont(id)) registerFreeFont(await fonts.load(id)); }
+      return buildFont(p);
+    };
+    const light = { ...old, freeFont: STYLE_FONTS.oldstyle, freeAt: freeAtOf(old), weight: 0.1 };
+    const own = (await loaded(light)).glyph('H')!;
+    const p = sanitizeParams({ ...light, outlines: { H: own.drawn ?? { adv: own.adv, contours: fitOutline(own.cmds) } } }), anchor = anchorOf(p);
+    const stem = (g: Glyph, y: number) => inkRuns(g.cmds, y, false)[0], gaps = (g: Glyph) => { const b = cmdsBox(g.cmds)!; return [b.x0, g.adv - b.x1]; };
+    const [l0, r0] = gaps((await loaded(p)).glyph('H')!);
+    for (const w of ['thin', 'light', 'regular', 'bold'] as const) {
+      const f = await loaded(familyMember(p, anchor, w, false).params), H = f.glyph('H')!, I = f.glyph('I')!;
+      const [h0, h1] = stem(H, f.m.cap * 0.25), [i0, i1] = stem(I, f.m.cap * 0.5);
+      assert.ok(Math.abs((h1 - h0) / (i1 - i0) - 1) < 0.05, `${w}: H's stem ${(h1 - h0).toFixed(1)}, I's ${(i1 - i0).toFixed(1)}`);
+      // (spaced as the font's letters are, their side bearings as they were and the advance grown by the ink)
+      const [l, r] = gaps(H);
+      assert.ok(Math.abs(l - l0) < 1.5 && Math.abs(r - r0) < 1.5, `${w}: side bearings ${l.toFixed(1)}, ${r.toFixed(1)} against ${l0.toFixed(1)}, ${r0.toFixed(1)}`);
+    }
   });
 
   it('lists every style once, and names the design by its weight and lean', () => {

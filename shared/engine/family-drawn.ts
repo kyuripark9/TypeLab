@@ -12,7 +12,7 @@ import { SLANT_PIVOT, buildFont, glyphDefOf, type Font, type Glyph } from './fon
 import { freeFont } from './free';
 import { inkX, inlineSkeleton, mapDrawn } from './free-letters';
 import { drawnEffects, drawnGlyph, type DrawnFx } from './glyph';
-import { signedArea, toPolys } from './geom';
+import { clamp, signedArea, toPolys } from './geom';
 import { drawnCmds, fitOutline, type Drawn, type Node } from './outline';
 import { sameMeasures, skinEdges, skinMeasures, skinMove, skinRig, type RigLetters, type SkinMeasures, type SkinRig } from './skin';
 
@@ -147,16 +147,60 @@ function shapeOf(cs: Node[][]): Shape {
   return s;
 }
 
+/** The letters whose stems a drawing's strokes follow in a design written in a free font, the first of them neither
+    drawn nor with settings of its own, each with the height its stem is read at standing alone (the I's half way up,
+    the H's below its bar, the n's and h's below their arches). */
+const STEM_LETTERS: [string, (f: Font) => number][] = [
+  ['I', f => f.m.cap * 0.5], ['l', f => f.m.xh * 0.5], ['H', f => f.m.cap * 0.25], ['n', f => f.m.xh * 0.3], ['h', f => f.m.xh * 0.3]
+];
+/** The width of the first stretch of ink across letter `g` at height y, overlapping pieces as one. */
+function firstRun(g: Glyph, y: number): number | null {
+  const hits: { x: number; d: number }[] = [];
+  for (const pl of toPolys(g.cmds)) for (let i = 0; i < pl.length; i++) {
+    const a = pl[i], b = pl[(i + 1) % pl.length];
+    if ((a.y <= y) !== (b.y <= y)) hits.push({ x: a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y), d: b.y > a.y ? 1 : -1 });
+  }
+  hits.sort((p, q) => p.x - q.x);
+  let w = 0, from = 0;
+  for (const h of hits) { const was = w; w += h.d; if (!was && w) from = h.x; else if (was && !w) return h.x - from; }
+  return null;
+}
+/** How a free font's own letters take the change from design `d` (settings `at`) to `font`, for a drawing in it to
+    take it as they do: the share of the engine's change in its stroke measures that thickens or thins the drawing's
+    stems as many times as the font's (a rig's strokes scale with the measures, skin.ts), and how much each side
+    bearing grows or shrinks. The font's letters follow Weight by their own share of their stem (penW in
+    free-letters.ts) and its family's heavier and lighter files, far less than the engine's stems move: moved by the
+    engine's measures alone, a capital drawn in Points at a light Old Style came out two and three times as heavy as
+    its neighbours in the family's Regular and Bold. None where neither is written in a free font, or no letter is
+    the font's own to read. */
+function freeMove(d: Font, at: Params, font: Font, from: SkinMeasures, to: SkinMeasures): { k: number; sb: number } | null {
+  if (!d.free && !font.free) return null;
+  const ds = to.s - from.s;
+  if (Math.abs(ds) < 0.05) return null;
+  const own = (f: Font, ch: string) => !f.params.outlines?.[ch] && !f.params.glyphs?.[ch];
+  for (const [ch, y] of STEM_LETTERS) {
+    if (!own(d, ch) || !own(font, ch) || at.outlines?.[ch]) continue;
+    const g0 = d.glyph(ch), g1 = font.glyph(ch);
+    const s0 = g0 && firstRun(g0, y(d)), s1 = g1 && firstRun(g1, y(font));
+    if (g0 && g1 && s0 && s1) return { k: clamp((s1 / s0 - 1) * from.s / ds, 0, 2), sb: (g1.lsb - g0.lsb + g1.rsb - g0.rsb) / 2 };
+  }
+  return null;
+}
+
 /** Letter `ch`, drawn as `drawn` in design `at`, in `font`, whose settings are moved from the design's. */
 function movedDrawn(ch: string, drawn: Drawn, font: Font, at: Params): Glyph {
-  const m0 = designOf(at).font.letter(ch).m, m1 = font.letter(ch).m, from = skinMeasures(m0), to = skinMeasures(m1);
+  const d0 = designOf(at).font, m0 = d0.letter(ch).m, m1 = font.letter(ch).m, from = skinMeasures(m0), to = skinMeasures(m1);
+  // (its strokes as many times thicker or thinner as the font's own letters', in a design written in a free font)
+  const fm = freeMove(d0, at, font, from, to);
+  if (fm) for (const key of ['s', 'sw', 'v', 'hT'] as const) to[key] = from[key] + (to[key] - from[key]) * fm.k;
   const rig = sameMeasures(from, to) ? null : skinRig(lettersOf(at), ch), moved = rig && keptMove(rig, from, to);
   const lean = m1.slant - m0.slant;
   let out: Drawn = drawn;
   if (rig && moved && moved !== rig.contours) {
     // spaced as the engine spaces its letters at this weight: each side bearing as drawn, wider or narrower as far as a
-    // stem's is (Metrics.sb) by the letter's own share of it (its glyph's side-bearing factors), round the moved ink
-    const [a0, a1] = inkX(drawn), [x0, x1] = inkX({ adv: 0, contours: moved }), f = glyphDefOf(ch)?.sb ?? [1, 1], d = m1.sb - m0.sb;
+    // stem's is (Metrics.sb) by the letter's own share of it (its glyph's side-bearing factors), round the moved ink;
+    // in a free font, as far as the font's own letters' (freeMove)
+    const [a0, a1] = inkX(drawn), [x0, x1] = inkX({ adv: 0, contours: moved }), f = glyphDefOf(ch)?.sb ?? [1, 1], d = fm ? fm.sb : m1.sb - m0.sb;
     const lsb = a0 + d * f[0], rsb = drawn.adv - a1 + d * f[1];
     out = mapDrawn({ adv: 0, contours: moved }, lsb + x1 - x0 + rsb, (x, y) => [x + lsb - x0, y]);
   }
